@@ -1,0 +1,26 @@
+# Python & Virtual Environments
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# PyTorch / Models
+*.pt
+*.pth
+*.onnx
+*.engine
+
+# Storage & Database
+storage/*.db
+storage/*.db-journal
+storage/*.jsonl
+*.log
+server.log
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

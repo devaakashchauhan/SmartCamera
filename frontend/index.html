@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Camera - Intelligent Monitoring & Analytics</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfeff',
+                            500: '#06b6d4',
+                            600: '#0891b2',
+                            700: '#0e7490',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.08); }
+        }
+        .live-dot {
+            animation: pulse-subtle 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-6 py-3.5">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-gradient-to-tr from-cyan-600 to-blue-500 rounded-xl shadow-lg shadow-cyan-500/20 text-white">
+                    <i data-lucide="video" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        SMART CAMERA
+                        <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800/60 text-cyan-400 font-semibold">AI System</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Intelligent Person, Posture & Dwell Analytics</p>
+                </div>
+            </div>
+
+            <!-- Header Controls & Telemetry -->
+            <div class="flex items-center gap-4">
+                <!-- Status Badge -->
+                <div id="connectionStatus" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-xs">
+                    <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 live-dot"></span>
+                    <span id="statusText" class="font-medium text-slate-300">Live Telemetry</span>
+                </div>
+
+                <!-- Hardware Device Pill -->
+                <div class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-xs font-mono text-cyan-400">
+                    <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+                    <span id="deviceLabel">GPU (RTX 3050)</span>
+                </div>
+
+                <!-- Start/Stop Camera Action Button -->
+                <button id="toggleCameraBtn" onclick="toggleCameraService()" class="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-md shadow-cyan-600/30 transition-all">
+                    <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                    <span id="toggleCameraText">Start Stream</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-6 py-6 space-y-6">
+
+        <!-- 1. KPI Metric Cards -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- Card 1: Currently In-View -->
+            <div class="bg-slate-900/70 border border-slate-800/80 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium uppercase tracking-wider text-slate-400">Currently Active</span>
+                    <div class="p-2 rounded-lg bg-cyan-950/60 text-cyan-400 border border-cyan-800/40">
+                        <i data-lucide="users" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-baseline gap-2">
+                    <span id="statActivePeople" class="text-3xl font-extrabold font-mono text-white tracking-tight">0</span>
+                    <span class="text-xs text-slate-400">in frame</span>
+                </div>
+                <p id="statUntrackedHint" class="mt-1 text-xs text-slate-500">All tracks verified</p>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 to-blue-500"></div>
+            </div>
+
+            <!-- Card 2: Seated Posture -->
+            <div class="bg-slate-900/70 border border-slate-800/80 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium uppercase tracking-wider text-slate-400">Seated Posture</span>
+                    <div class="p-2 rounded-lg bg-emerald-950/60 text-emerald-400 border border-emerald-800/40">
+                        <i data-lucide="armchair" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-baseline gap-2">
+                    <span id="statSeated" class="text-3xl font-extrabold font-mono text-emerald-400 tracking-tight">0</span>
+                    <span class="text-xs text-slate-400">sitting</span>
+                </div>
+                <p class="mt-1 text-xs text-emerald-500/80 font-medium flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Verified sitting
+                </p>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
+            </div>
+
+            <!-- Card 3: Standing Posture -->
+            <div class="bg-slate-900/70 border border-slate-800/80 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium uppercase tracking-wider text-slate-400">Standing Posture</span>
+                    <div class="p-2 rounded-lg bg-blue-950/60 text-blue-400 border border-blue-800/40">
+                        <i data-lucide="footprints" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-baseline gap-2">
+                    <span id="statStanding" class="text-3xl font-extrabold font-mono text-blue-400 tracking-tight">0</span>
+                    <span class="text-xs text-slate-400">upright</span>
+                </div>
+                <p class="mt-1 text-xs text-blue-500/80 font-medium flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span> Active standing
+                </p>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-blue-500"></div>
+            </div>
+
+            <!-- Card 4: System Detection vs Undetected (Idle) Time -->
+            <div class="bg-slate-900/70 border border-slate-800/80 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium uppercase tracking-wider text-slate-400">System Detection</span>
+                    <div class="p-2 rounded-lg bg-purple-950/60 text-purple-400 border border-purple-800/40">
+                        <i data-lucide="clock" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-baseline gap-2">
+                    <span id="statSystemCoverage" class="text-3xl font-extrabold font-mono text-purple-300 tracking-tight">100%</span>
+                    <span class="text-xs text-slate-400">detected</span>
+                </div>
+                <p class="mt-1 text-xs text-slate-400">
+                    Active: <span id="statSysDetected" class="text-cyan-400 font-mono font-semibold">0s</span> | 
+                    Idle: <span id="statSysUndetected" class="text-slate-300 font-mono font-semibold">0s</span>
+                </p>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-purple-500"></div>
+            </div>
+
+        </section>
+
+        <!-- 2. Live Stream & Analytics Grid -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Left: Live Video Player (7 Cols) -->
+            <div class="lg:col-span-7 bg-slate-900/70 border border-slate-800/80 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400 live-dot"></span>
+                        <h2 class="text-sm font-semibold text-white tracking-wide">Live Camera Stream</h2>
+                        <span class="text-xs font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded">640x480</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs font-mono">
+                        <span class="text-slate-400">FPS:</span>
+                        <span id="liveFps" class="font-bold text-cyan-400">0.0</span>
+                    </div>
+                </div>
+
+                <!-- Video Frame Container -->
+                <div class="relative w-full aspect-video bg-black rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center">
+                    <img id="cameraStreamImg" src="/api/camera/stream" alt="Live Camera Stream" class="w-full h-full object-contain">
+                    
+                    <!-- HUD Top Overlay Badge -->
+                    <div class="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-slate-950/80 border border-slate-700/60 backdrop-blur-sm text-[11px] font-mono text-slate-200 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 live-dot"></span>
+                        <span>SMART CAMERA AI</span>
+                    </div>
+                </div>
+
+                <!-- Camera Stream Controls -->
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center gap-2">
+                        <button onclick="toggleOverlay('zones')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+                            <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+                            <span>Toggle Zones</span>
+                        </button>
+                        <button onclick="toggleOverlay('objects')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+                            <i data-lucide="box" class="w-3.5 h-3.5"></i>
+                            <span>Toggle Objects</span>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button id="btnWebcamShare" onclick="toggleWebcamShare()" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium border border-cyan-500 transition flex items-center gap-1.5 shadow-sm">
+                            <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                            <span id="btnWebcamShareText">Share Laptop Webcam</span>
+                        </button>
+                        <button onclick="takeSnapshot()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+                            <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+                            <span>Snapshot</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Hourly Analytics Chart & Zones (5 Cols) -->
+            <div class="lg:col-span-5 flex flex-col gap-6">
+
+                <!-- Hourly Trends Chart -->
+                <div class="bg-slate-900/70 border border-slate-800/80 rounded-xl p-4 shadow-sm flex-1 flex flex-col">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-sm font-semibold text-white tracking-wide flex items-center gap-2">
+                            <i data-lucide="bar-chart-2" class="w-4 h-4 text-cyan-400"></i>
+                            Hourly Traffic Distribution
+                        </h2>
+                        <span class="text-xs text-slate-400">Today</span>
+                    </div>
+
+                    <div class="relative flex-1 min-h-[220px]">
+                        <canvas id="trafficChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Spatial Zones Overview -->
+                <div class="bg-slate-900/70 border border-slate-800/80 rounded-xl p-4 shadow-sm">
+                    <h2 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                        <i data-lucide="map-pin" class="w-4 h-4 text-cyan-400"></i>
+                        Active Spatial Zones
+                    </h2>
+                    <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div class="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/50">
+                            <span class="font-semibold text-amber-400">ZONE A</span>
+                            <p class="text-[10px] text-slate-400 mt-0.5">Counter / Entry</p>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/50">
+                            <span class="font-semibold text-rose-400">ZONE B</span>
+                            <p class="text-[10px] text-slate-400 mt-0.5">Service Area</p>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/50">
+                            <span class="font-semibold text-cyan-400">ZONE C</span>
+                            <p class="text-[10px] text-slate-400 mt-0.5">Main Lounge</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- 3. Real-Time Person Dwell & Sit/Stand Duration Table -->
+        <section class="bg-slate-900/70 border border-slate-800/80 rounded-xl p-4 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="user-check" class="w-4 h-4 text-emerald-400"></i>
+                    <h2 class="text-sm font-semibold text-white tracking-wide">Live Person Dwell & Time Tracking (Sitting vs. Standing)</h2>
+                </div>
+                <span class="text-xs text-slate-400 font-mono">Real-time Accumulator</span>
+            </div>
+
+            <!-- Dwell Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-800/60 text-slate-400 uppercase tracking-wider text-[11px] font-semibold">
+                        <tr>
+                            <th class="py-2.5 px-3">Track ID</th>
+                            <th class="py-2.5 px-3">Current Posture</th>
+                            <th class="py-2.5 px-3">Sat Down At</th>
+                            <th class="py-2.5 px-3">Stood Up At</th>
+                            <th class="py-2.5 px-3">Time Sitting</th>
+                            <th class="py-2.5 px-3">Time Standing</th>
+                            <th class="py-2.5 px-3">Undetected / Lost Time</th>
+                            <th class="py-2.5 px-3">Total Dwell</th>
+                            <th class="py-2.5 px-3">Detection Quality</th>
+                        </tr>
+                    </thead>
+                    <tbody id="personDwellTableBody" class="divide-y divide-slate-800/60 font-mono">
+                        <tr>
+                            <td colspan="9" class="py-6 text-center text-slate-500 font-sans">
+                                Waiting for tracked individuals in frame...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 4. Real-Time Activity Event Stream -->
+        <section class="bg-slate-900/70 border border-slate-800/80 rounded-xl p-4 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i>
+                    <h2 class="text-sm font-semibold text-white tracking-wide">Recent Posture Transition Events</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="fetchOverviewData()" class="text-xs text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Events Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-800/60 text-slate-400 uppercase tracking-wider text-[11px] font-semibold">
+                        <tr>
+                            <th class="py-2.5 px-3">Timestamp</th>
+                            <th class="py-2.5 px-3">Track ID</th>
+                            <th class="py-2.5 px-3">Event Type</th>
+                            <th class="py-2.5 px-3">Posture</th>
+                            <th class="py-2.5 px-3">Location</th>
+                            <th class="py-2.5 px-3">Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eventsTableBody" class="divide-y divide-slate-800/60 font-mono">
+                        <tr>
+                            <td colspan="6" class="py-6 text-center text-slate-500 font-sans">
+                                Waiting for incoming camera events...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Client-Side JavaScript -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        let isCameraRunning = false;
+        let trafficChart = null;
+        let ws = null;
+        let wsConnected = false;
+
+        // --- WebSocket Telemetry Client with Polling Fallback ---
+        function initWebSocket() {
+            try {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/api/dashboard/ws/live`;
+                
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    wsConnected = true;
+                    document.getElementById('statusDot').className = "w-2.5 h-2.5 rounded-full bg-emerald-500 live-dot";
+                    document.getElementById('statusText').innerText = "Live Telemetry";
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        updateTelemetryUI(data);
+                    } catch (e) {
+                        console.error("WS Parse Error", e);
+                    }
+                };
+
+                ws.onclose = () => {
+                    wsConnected = false;
+                    document.getElementById('statusDot').className = "w-2.5 h-2.5 rounded-full bg-emerald-500 live-dot";
+                    document.getElementById('statusText').innerText = "Live (HTTP Sync)";
+                    setTimeout(initWebSocket, 4000);
+                };
+
+                ws.onerror = () => {
+                    wsConnected = false;
+                };
+            } catch (err) {
+                wsConnected = false;
+            }
+        }
+
+        // --- HTTP Polling Fallback ---
+        async function pollLiveTelemetry() {
+            if (!wsConnected) {
+                try {
+                    const res = await fetch('/api/events/live-stats');
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data) {
+                            updateTelemetryUI(data);
+                        }
+                    }
+                } catch (e) {}
+            }
+        }
+
+        // --- Update UI with Live Telemetry ---
+        function updateTelemetryUI(data) {
+            if (!data) return;
+
+            document.getElementById('statActivePeople').innerText = (data.tracked_count || 0) + (data.untracked_count || 0);
+            document.getElementById('statSeated').innerText = data.seated_count || 0;
+            document.getElementById('statStanding').innerText = data.standing_count || 0;
+            document.getElementById('liveFps').innerText = (data.fps || 0.0).toFixed(1);
+
+            if (data.device) {
+                document.getElementById('deviceLabel').innerText = `${data.device}`;
+            }
+
+            if (data.untracked_count > 0) {
+                document.getElementById('statUntrackedHint').innerText = `${data.untracked_count} untracked detection(s)`;
+            } else {
+                document.getElementById('statUntrackedHint').innerText = "All tracks verified";
+            }
+
+            // System-level detection vs undetected (idle) time
+            if (data.system_coverage_pct !== undefined) {
+                document.getElementById('statSystemCoverage').innerText = `${data.system_coverage_pct.toFixed(0)}%`;
+            }
+            if (data.system_detected_seconds !== undefined) {
+                document.getElementById('statSysDetected').innerText = formatSeconds(data.system_detected_seconds);
+            }
+            if (data.system_undetected_seconds !== undefined) {
+                document.getElementById('statSysUndetected').innerText = formatSeconds(data.system_undetected_seconds);
+            }
+
+            // Render Live Person Dwell & Time Tracking Table
+            if (data.person_time_records) {
+                renderPersonDwellTable(data.person_time_records);
+            }
+        }
+
+        function formatSeconds(sec) {
+            const s = Math.floor(sec || 0);
+            const m = Math.floor(s / 60);
+            const rem_s = s % 60;
+            return m > 0 ? `${m}m ${rem_s}s` : `${rem_s}s`;
+        }
+
+        // --- Render Person Dwell Table ---
+        function renderPersonDwellTable(records) {
+            const tbody = document.getElementById('personDwellTableBody');
+            if (!records || records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="py-6 text-center text-slate-500 font-sans">No active people currently in frame</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = records.map(r => {
+                const isSitting = r.current_posture === 'SITTING';
+                const postureBadge = isSitting 
+                    ? '<span class="px-2 py-0.5 rounded text-[10px] font-semibold border bg-emerald-950/80 border-emerald-700/60 text-emerald-400">SITTING</span>'
+                    : '<span class="px-2 py-0.5 rounded text-[10px] font-semibold border bg-blue-950/80 border-blue-700/60 text-blue-400">STANDING</span>';
+
+                const statusColor = r.is_absent ? 'text-amber-400' : 'text-white';
+                const satAt = r.last_sat_formatted || '--';
+                const stoodAt = r.last_stood_formatted || '--';
+                const lostText = r.undetected_seconds > 0 ? `${r.undetected_seconds.toFixed(1)}s` : '0s';
+                const qualityColor = r.detection_rate_pct >= 90 ? 'text-emerald-400' : (r.detection_rate_pct >= 70 ? 'text-cyan-400' : 'text-amber-400');
+
+                return `
+                    <tr class="hover:bg-slate-800/40 transition">
+                        <td class="py-2.5 px-3 font-bold ${statusColor}">ID #${r.track_id} ${r.is_absent ? '(Occluded)' : ''}</td>
+                        <td class="py-2.5 px-3">${postureBadge}</td>
+                        <td class="py-2.5 px-3 text-emerald-400/90 font-mono">${satAt}</td>
+                        <td class="py-2.5 px-3 text-blue-400/90 font-mono">${stoodAt}</td>
+                        <td class="py-2.5 px-3 text-emerald-400 font-semibold">${formatSeconds(r.sitting_seconds)}</td>
+                        <td class="py-2.5 px-3 text-blue-400 font-semibold">${formatSeconds(r.standing_seconds)}</td>
+                        <td class="py-2.5 px-3 text-slate-400">${lostText}</td>
+                        <td class="py-2.5 px-3 font-bold text-white">${formatSeconds(r.total_session_seconds)}</td>
+                        <td class="py-2.5 px-3 font-semibold ${qualityColor}">${r.detection_rate_pct}% seen</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- Fetch REST Overview ---
+        async function fetchOverviewData() {
+            try {
+                const res = await fetch('/api/dashboard/overview');
+                if (!res.ok) return;
+                const data = await res.json();
+
+                // Update Chart
+                if (data.hourly_trends) {
+                    updateChart(data.hourly_trends);
+                }
+
+                // Update Events Table
+                if (data.recent_events) {
+                    renderEventsTable(data.recent_events);
+                }
+            } catch (err) {
+                console.error("Overview Fetch Error", err);
+            }
+        }
+
+        // --- Render Events Table ---
+        function renderEventsTable(events) {
+            const tbody = document.getElementById('eventsTableBody');
+            if (!events || events.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500 font-sans">No events recorded today yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = events.map(ev => {
+                const dt = new Date(ev.timestamp);
+                const timeStr = dt.toLocaleTimeString();
+
+                const postureColor = ev.posture === 'SITTING' 
+                    ? 'bg-emerald-950/80 border-emerald-700/60 text-emerald-400' 
+                    : ev.posture === 'STANDING' 
+                    ? 'bg-blue-950/80 border-blue-700/60 text-blue-400' 
+                    : 'bg-slate-800 border-slate-700 text-slate-400';
+
+                const durStr = ev.duration_seconds ? `${ev.duration_seconds.toFixed(1)}s` : '--';
+
+                return `
+                    <tr class="hover:bg-slate-800/40 transition">
+                        <td class="py-2.5 px-3 text-slate-400">${timeStr}</td>
+                        <td class="py-2.5 px-3 font-bold text-white">ID #${ev.person_track_id}</td>
+                        <td class="py-2.5 px-3 text-cyan-400 font-semibold">${ev.event_type}</td>
+                        <td class="py-2.5 px-3">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold border ${postureColor}">
+                                ${ev.posture}
+                            </span>
+                        </td>
+                        <td class="py-2.5 px-3 text-slate-400">${ev.location || 'MAIN_AREA'}</td>
+                        <td class="py-2.5 px-3 text-slate-300 font-bold">${durStr}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- Chart.js Hourly Graph ---
+        function updateChart(hourlyTrends) {
+            const labels = hourlyTrends.map(h => h.hour);
+            const seatedData = hourlyTrends.map(h => h.seated_count);
+            const standingData = hourlyTrends.map(h => h.standing_count);
+
+            if (trafficChart) {
+                trafficChart.data.labels = labels;
+                trafficChart.data.datasets[0].data = seatedData;
+                trafficChart.data.datasets[1].data = standingData;
+                trafficChart.update();
+                return;
+            }
+
+            const ctx = document.getElementById('trafficChart').getContext('2d');
+            trafficChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Seated',
+                            data: seatedData,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            tension: 0.35,
+                            fill: true,
+                            pointRadius: 3
+                        },
+                        {
+                            label: 'Standing',
+                            data: standingData,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                            tension: 0.35,
+                            fill: true,
+                            pointRadius: 3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#94a3b8', font: { size: 11 } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#1e293b' },
+                            ticks: { color: '#64748b', font: { size: 10 } }
+                        },
+                        y: {
+                            grid: { color: '#1e293b' },
+                            ticks: { color: '#64748b', font: { size: 10 }, precision: 0 },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Camera Service Controls ---
+        async function toggleCameraService() {
+            const btnText = document.getElementById('toggleCameraText');
+            if (!isCameraRunning) {
+                btnText.innerText = "Starting...";
+                const res = await fetch('/api/camera/start', { method: 'POST' });
+                if (res.ok) {
+                    isCameraRunning = true;
+                    btnText.innerText = "Stop Stream";
+                    document.getElementById('cameraStreamImg').src = "/api/camera/stream?t=" + Date.now();
+                }
+            } else {
+                btnText.innerText = "Stopping...";
+                const res = await fetch('/api/camera/stop', { method: 'POST' });
+                if (res.ok) {
+                    isCameraRunning = false;
+                    btnText.innerText = "Start Stream";
+                }
+            }
+        }
+
+        // --- Laptop Webcam Stream Sharing (For Cloud / Google Colab) ---
+        let webcamStream = null;
+        let webcamInterval = null;
+        let isWebcamSharing = false;
+        let offscreenVideo = null;
+        let offscreenCanvas = null;
+
+        async function toggleWebcamShare() {
+            const btn = document.getElementById('btnWebcamShare');
+            const btnText = document.getElementById('btnWebcamShareText');
+
+            if (isWebcamSharing) {
+                stopWebcamShare();
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                });
+
+                webcamStream = stream;
+                offscreenVideo = document.createElement('video');
+                offscreenVideo.srcObject = stream;
+                offscreenVideo.setAttribute('playsinline', '');
+                offscreenVideo.muted = true;
+                await offscreenVideo.play();
+
+                offscreenCanvas = document.createElement('canvas');
+                offscreenCanvas.width = 640;
+                offscreenCanvas.height = 480;
+                const ctx = offscreenCanvas.getContext('2d');
+
+                isWebcamSharing = true;
+                btn.classList.remove('bg-cyan-600', 'hover:bg-cyan-500', 'border-cyan-500');
+                btn.classList.add('bg-rose-600', 'hover:bg-rose-500', 'border-rose-500');
+                btnText.textContent = 'Stop Sharing Webcam';
+
+                // Refresh player image element to point to stream
+                const streamImg = document.getElementById('cameraStreamImg');
+                streamImg.src = "/api/camera/stream?t=" + Date.now();
+
+                let isSending = false;
+                webcamInterval = setInterval(() => {
+                    if (!isWebcamSharing || isSending) return;
+                    if (offscreenVideo.readyState < 2) return;
+
+                    isSending = true;
+                    ctx.drawImage(offscreenVideo, 0, 0, 640, 480);
+                    offscreenCanvas.toBlob(async (blob) => {
+                        if (blob && isWebcamSharing) {
+                            try {
+                                await fetch('/api/camera/upload-raw-frame', {
+                                    method: 'POST',
+                                    body: blob,
+                                    headers: { 'Content-Type': 'image/jpeg' }
+                                });
+                            } catch (e) {
+                                console.warn('Frame relay glitch:', e);
+                            }
+                        }
+                        isSending = false;
+                    }, 'image/jpeg', 0.65);
+                }, 70); // ~14 FPS stream to Colab
+
+            } catch (err) {
+                console.error('Webcam access error:', err);
+                alert('Could not access laptop webcam: ' + err.message + '\nPlease grant camera permissions in your browser.');
+                stopWebcamShare();
+            }
+        }
+
+        function stopWebcamShare() {
+            isWebcamSharing = false;
+            if (webcamInterval) {
+                clearInterval(webcamInterval);
+                webcamInterval = null;
+            }
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+            }
+            if (offscreenVideo) {
+                offscreenVideo.pause();
+                offscreenVideo.srcObject = null;
+                offscreenVideo = null;
+            }
+            const btn = document.getElementById('btnWebcamShare');
+            const btnText = document.getElementById('btnWebcamShareText');
+            if (btn && btnText) {
+                btn.classList.add('bg-cyan-600', 'hover:bg-cyan-500', 'border-cyan-500');
+                btn.classList.remove('bg-rose-600', 'hover:bg-rose-500', 'border-rose-500');
+                btnText.textContent = 'Share Laptop Webcam';
+            }
+        }
+
+        async function toggleOverlay(type) {
+            await fetch(`/api/camera/toggle-${type}`, { method: 'POST' });
+        }
+
+        function takeSnapshot() {
+            const img = document.getElementById('cameraStreamImg');
+            const a = document.createElement('a');
+            a.href = img.src;
+            a.download = `snapshot_${Date.now()}.jpg`;
+            a.click();
+        }
+
+        async function checkCameraStatus() {
+            try {
+                const res = await fetch('/api/camera/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    const btnText = document.getElementById('toggleCameraText');
+                    if (data.running) {
+                        isCameraRunning = true;
+                        btnText.innerText = "Stop Stream";
+                    }
+                }
+            } catch (e) {}
+        }
+
+        // --- Startup ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initWebSocket();
+            fetchOverviewData();
+            checkCameraStatus();
+            // Regular sync intervals
+            setInterval(fetchOverviewData, 4000);
+            setInterval(pollLiveTelemetry, 1000);
+            setInterval(checkCameraStatus, 3000);
+        });
+    </script>
+</body>
+</html>

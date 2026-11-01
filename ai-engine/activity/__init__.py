@@ -1,0 +1,1 @@
+from .posture_classifier import PostureClassifier
