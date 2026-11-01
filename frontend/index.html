@@ -66,11 +66,17 @@
                 <!-- Hardware Device Pill -->
                 <div class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-xs font-mono text-cyan-400">
                     <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
-                    <span id="deviceLabel">GPU (RTX 3050)</span>
+                    <span id="deviceLabel">GPU AI</span>
                 </div>
 
+                <!-- Share Laptop Webcam Button (For Google Colab / Remote) -->
+                <button id="toggleWebcamHeaderBtn" onclick="toggleWebcamShare()" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 transition-all">
+                    <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                    <span id="toggleWebcamHeaderBtnText">Share Laptop Webcam</span>
+                </button>
+
                 <!-- Start/Stop Camera Action Button -->
-                <button id="toggleCameraBtn" onclick="toggleCameraService()" class="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-md shadow-cyan-600/30 transition-all">
+                <button id="toggleCameraBtn" onclick="toggleCameraService()" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-md shadow-cyan-600/30 transition-all">
                     <i data-lucide="play" class="w-3.5 h-3.5"></i>
                     <span id="toggleCameraText">Start Stream</span>
                 </button>
@@ -655,9 +661,19 @@
                 const ctx = offscreenCanvas.getContext('2d');
 
                 isWebcamSharing = true;
-                btn.classList.remove('bg-cyan-600', 'hover:bg-cyan-500', 'border-cyan-500');
-                btn.classList.add('bg-rose-600', 'hover:bg-rose-500', 'border-rose-500');
-                btnText.textContent = 'Stop Sharing Webcam';
+                // Update button states
+                if (btn) {
+                    btn.classList.remove('bg-cyan-600', 'hover:bg-cyan-500', 'border-cyan-500');
+                    btn.classList.add('bg-rose-600', 'hover:bg-rose-500', 'border-rose-500');
+                    if (btnText) btnText.textContent = 'Stop Sharing Webcam';
+                }
+                const headerBtn = document.getElementById('toggleWebcamHeaderBtn');
+                const headerBtnText = document.getElementById('toggleWebcamHeaderBtnText');
+                if (headerBtn) {
+                    headerBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+                    headerBtn.classList.add('bg-rose-600', 'hover:bg-rose-500');
+                    if (headerBtnText) headerBtnText.textContent = 'Stop Sharing Webcam';
+                }
 
                 // Refresh player image element to point to stream
                 const streamImg = document.getElementById('cameraStreamImg');
@@ -714,6 +730,13 @@
                 btn.classList.add('bg-cyan-600', 'hover:bg-cyan-500', 'border-cyan-500');
                 btn.classList.remove('bg-rose-600', 'hover:bg-rose-500', 'border-rose-500');
                 btnText.textContent = 'Share Laptop Webcam';
+            }
+            const headerBtn = document.getElementById('toggleWebcamHeaderBtn');
+            const headerBtnText = document.getElementById('toggleWebcamHeaderBtnText');
+            if (headerBtn && headerBtnText) {
+                headerBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+                headerBtn.classList.remove('bg-rose-600', 'hover:bg-rose-500');
+                headerBtnText.textContent = 'Share Laptop Webcam';
             }
         }
 

@@ -52,10 +52,17 @@ def health_check():
 
 @app.get("/", response_class=HTMLResponse, tags=["Dashboard"])
 def get_dashboard():
-    """Serves the Smart Camera web dashboard."""
+    """Serves the Smart Camera web dashboard with no-cache headers."""
     html_path = frontend_dir / "index.html"
     if html_path.exists():
-        return FileResponse(html_path)
+        return FileResponse(
+            html_path,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
     return HTMLResponse("<h1>Dashboard index.html not found</h1>", status_code=404)
 
 
