@@ -21,8 +21,8 @@ def main():
     parser = argparse.ArgumentParser(description="Stream laptop webcam to Google Colab Smart Camera")
     parser.add_argument("--url", type=str, required=True, help="Colab Cloudflare Tunnel URL (e.g. https://xyz.trycloudflare.com)")
     parser.add_argument("--source", default=0, help="Webcam device index (0) or path to a local video file")
-    parser.add_argument("--fps", type=int, default=15, help="Target transmission frame rate (default: 15 FPS)")
-    parser.add_argument("--quality", type=int, default=70, help="JPEG compression quality (1-100, default: 70)")
+    parser.add_argument("--fps", type=int, default=18, help="Target transmission frame rate (default: 18 FPS)")
+    parser.add_argument("--quality", type=int, default=55, help="JPEG compression quality (1-100, default: 55)")
     args = parser.parse_args()
 
     base_url = args.url.rstrip("/")
@@ -50,8 +50,8 @@ def main():
         print(f"[Error] Could not open camera source {source}. Make sure no other app is using your webcam.")
         sys.exit(1)
 
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 480)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
 
     frame_delay = 1.0 / max(1, args.fps)
     session = requests.Session()
@@ -69,10 +69,10 @@ def main():
                 print("\n[Warning] Frame grab failed or video reached the end.")
                 break
 
-            # Resize if frame is larger than 640x480 to preserve bandwidth
+            # Resize to 480x360 to minimize network latency over Cloudflare
             h, w = frame.shape[:2]
-            if w > 640 or h > 480:
-                frame = cv2.resize(frame, (640, 480))
+            if w != 480 or h != 360:
+                frame = cv2.resize(frame, (480, 360))
 
             # Encode to JPEG
             ok, buffer = cv2.imencode(".jpg", frame, encode_params)

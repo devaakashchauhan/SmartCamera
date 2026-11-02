@@ -57,6 +57,15 @@ class CameraWorker:
         self.person_last_posture = {}
         self._last_upload_time = 0.0
 
+        # Async raw frame buffering & inference thread
+        self.raw_lock = threading.Lock()
+        self.pending_raw_bytes: Optional[bytes] = None
+        self.raw_frame_event = threading.Event()
+        self._async_worker_started = False
+        self._frame_count = 0
+        self._cached_objects = []
+        self._cached_chairs = []
+
     @classmethod
     def get_instance(cls) -> "CameraWorker":
         if cls._instance is None:
@@ -69,10 +78,37 @@ class CameraWorker:
             self.latest_frame_bytes = frame_bytes
             self.last_frame_received_time = time.time()
 
+    def push_raw_frame(self, frame_bytes: bytes):
+        """
+        Receives raw unannotated JPEG frames asynchronously.
+        Buffers immediately (<1ms) to release HTTP request thread and prevent network stop-and-wait stalling.
+        """
+        with self.raw_lock:
+            self.pending_raw_bytes = frame_bytes
+        self.raw_frame_event.set()
+
+        if not self._async_worker_started:
+            self._async_worker_started = True
+            threading.Thread(target=self._async_raw_processor_loop, daemon=True).start()
+
+    def _async_raw_processor_loop(self):
+        """Dedicated background thread running GPU inference on the freshest uploaded frame."""
+        while True:
+            self.raw_frame_event.wait(timeout=1.0)
+            self.raw_frame_event.clear()
+
+            frame_bytes = None
+            with self.raw_lock:
+                frame_bytes = self.pending_raw_bytes
+                self.pending_raw_bytes = None
+
+            if frame_bytes:
+                self.process_raw_frame(frame_bytes)
+
     def process_raw_frame(self, frame_bytes: bytes) -> dict:
         """
-        Receives raw unannotated JPEG frames (e.g., from laptop browser webcam or Python sender script)
-        and runs Google Colab GPU AI detection, tracking, posture classification, updating live stream & telemetry.
+        Processes an unannotated JPEG frame on Google Colab GPU:
+        Runs YOLO + posture tracking, updates dwell time records and live MJPEG stream.
         """
         np_arr = np.frombuffer(frame_bytes, np.uint8)
         frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
@@ -100,9 +136,15 @@ class CameraWorker:
 
     def _process_and_annotate(self, frame: np.ndarray, now: float) -> dict:
         """Core AI pipeline: detection, tracking, dwell timing, telemetry broadcast, overlay rendering."""
-        # 1. Detect target objects
-        detected_objects = self.detector.detect(frame)
-        chair_boxes = self.detector.get_boxes_by_class(detected_objects, "chair")
+        self._frame_count += 1
+
+        # 1. Detect target objects (cache chairs every 3 frames to double GPU throughput; furniture is static)
+        if self._frame_count % 3 == 1 or not self._cached_chairs:
+            self._cached_objects = self.detector.detect(frame)
+            self._cached_chairs = self.detector.get_boxes_by_class(self._cached_objects, "chair")
+
+        detected_objects = self._cached_objects
+        chair_boxes = self._cached_chairs
 
         # 2. Track people & classify posture
         tracked_people = self.tracker.track(frame, chair_boxes=chair_boxes)
@@ -165,8 +207,8 @@ class CameraWorker:
         if self.tracker:
             annotated = self.tracker.draw_people(annotated, tracked_people, self.time_tracker.active_records)
 
-        # 7. Compress frame to JPEG for web streaming
-        ret, jpeg_buffer = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        # 7. Compress frame to JPEG for web streaming (quality 70 for low latency)
+        ret, jpeg_buffer = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 70])
         if ret:
             with self.lock:
                 self.latest_frame_bytes = jpeg_buffer.tobytes()

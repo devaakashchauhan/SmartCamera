@@ -35,14 +35,14 @@ async def upload_frame(request: Request):
 @router.post("/upload-raw-frame")
 async def upload_raw_frame(request: Request):
     """
-    Receives raw unannotated JPEG frames from client webcam (browser or laptop Python script),
-    runs Google Colab GPU AI detection, tracking, posture classification, and updates the live stream.
+    Receives raw unannotated JPEG frames from client webcam (browser or laptop Python script).
+    Buffers asynchronously (<1ms) so the client is never bottlenecked by network Stop-and-Wait latency.
     """
     body = await request.body()
     if body:
         worker = CameraWorker.get_instance()
-        stats = worker.process_raw_frame(body)
-        return {"status": "ok", "stats": stats}
+        worker.push_raw_frame(body)
+        return {"status": "ok"}
     return {"status": "empty"}
 
 

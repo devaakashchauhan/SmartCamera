@@ -655,9 +655,10 @@
                 offscreenVideo.muted = true;
                 await offscreenVideo.play();
 
+                // Set transmission resolution to 480x360 (optimized for low-latency network streaming)
                 offscreenCanvas = document.createElement('canvas');
-                offscreenCanvas.width = 640;
-                offscreenCanvas.height = 480;
+                offscreenCanvas.width = 480;
+                offscreenCanvas.height = 360;
                 const ctx = offscreenCanvas.getContext('2d');
 
                 isWebcamSharing = true;
@@ -679,13 +680,17 @@
                 const streamImg = document.getElementById('cameraStreamImg');
                 streamImg.src = "/api/camera/stream?t=" + Date.now();
 
-                let isSending = false;
-                webcamInterval = setInterval(() => {
-                    if (!isWebcamSharing || isSending) return;
-                    if (offscreenVideo.readyState < 2) return;
+                // Pipelined network transmission (allows up to 2 concurrent in-flight frames)
+                let inFlightUploads = 0;
+                const MAX_IN_FLIGHT = 2;
 
-                    isSending = true;
-                    ctx.drawImage(offscreenVideo, 0, 0, 640, 480);
+                webcamInterval = setInterval(() => {
+                    if (!isWebcamSharing) return;
+                    if (offscreenVideo.readyState < 2) return;
+                    if (inFlightUploads >= MAX_IN_FLIGHT) return; // Drop frame if network is congested
+
+                    inFlightUploads++;
+                    ctx.drawImage(offscreenVideo, 0, 0, 480, 360);
                     offscreenCanvas.toBlob(async (blob) => {
                         if (blob && isWebcamSharing) {
                             try {
@@ -695,12 +700,12 @@
                                     headers: { 'Content-Type': 'image/jpeg' }
                                 });
                             } catch (e) {
-                                console.warn('Frame relay glitch:', e);
+                                // Silently drop occasional network jitter
                             }
                         }
-                        isSending = false;
-                    }, 'image/jpeg', 0.65);
-                }, 70); // ~14 FPS stream to Colab
+                        inFlightUploads = Math.max(0, inFlightUploads - 1);
+                    }, 'image/jpeg', 0.50); // Quality 0.50 (~12KB payload instead of 45KB)
+                }, 60); // ~16 FPS target
 
             } catch (err) {
                 console.error('Webcam access error:', err);
