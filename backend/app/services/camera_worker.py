@@ -223,13 +223,20 @@ class CameraWorker:
 
     def start(self, source: int | str = 0) -> bool:
         """Starts the camera inference thread if not already running."""
+        # Convert numeric string to int if applicable
+        if isinstance(source, str) and source.isdigit():
+            source = int(source)
+
         if self.is_running:
-            return True
+            if self.camera and getattr(self.camera, "raw_source", None) == source:
+                return True
+            print(f"[CameraWorker] Switching source to {source}...")
+            self.stop()
 
         print(f"[CameraWorker] Initializing camera source {source}...")
         self.camera = CameraManager(source=source)
         if not self.camera.connect():
-            print("[CameraWorker] Warning: Webcam could not be locked (may be open in desktop window or in cloud VM).")
+            print("[CameraWorker] Warning: Camera source could not be opened.")
             # If external engine is feeding frames, return true
             if (time.time() - self.last_frame_received_time) < 3.0:
                 print("[CameraWorker] External engine is actively feeding frames.")

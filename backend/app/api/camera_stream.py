@@ -1,9 +1,16 @@
+from typing import Optional
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from app.services.camera_worker import CameraWorker
 
 router = APIRouter(prefix="/camera", tags=["Camera Stream & Control"])
+
+
+class StartStreamRequest(BaseModel):
+    source: Optional[str] = None
+    youtube_url: Optional[str] = None
 
 
 @router.get("/stream")
@@ -52,6 +59,20 @@ def start_camera(source: int | str = 0):
     worker = CameraWorker.get_instance()
     success = worker.start(source=source)
     return {"status": "started" if success else "failed", "source": source}
+
+
+@router.post("/start-youtube")
+def start_youtube_stream(req: StartStreamRequest):
+    """
+    Starts real-time AI computer vision on a live YouTube stream.
+    Resolves the stream directly within Google Colab GPU for ultra-high FPS (20-30 FPS).
+    """
+    url = req.youtube_url or req.source
+    if not url:
+        return {"status": "error", "message": "Missing youtube_url"}
+    worker = CameraWorker.get_instance()
+    success = worker.start(source=url)
+    return {"status": "started" if success else "failed", "source": url}
 
 
 @router.post("/stop")

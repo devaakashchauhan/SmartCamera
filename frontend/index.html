@@ -69,6 +69,12 @@
                     <span id="deviceLabel">GPU AI</span>
                 </div>
 
+                <!-- YouTube Live Fast Stream Button -->
+                <button onclick="document.getElementById('youtubeUrlInput').focus(); document.getElementById('youtubeControlCard').scrollIntoView({behavior: 'smooth'})" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shadow-md shadow-red-600/30 transition-all">
+                    <i data-lucide="youtube" class="w-3.5 h-3.5"></i>
+                    <span>YouTube Live (25-30 FPS)</span>
+                </button>
+
                 <!-- Share Laptop Webcam Button (For Google Colab / Remote) -->
                 <button id="toggleWebcamHeaderBtn" onclick="toggleWebcamShare()" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 transition-all">
                     <i data-lucide="video" class="w-3.5 h-3.5"></i>
@@ -213,6 +219,42 @@
                             <i data-lucide="camera" class="w-3.5 h-3.5"></i>
                             <span>Snapshot</span>
                         </button>
+                    </div>
+                </div>
+
+                <!-- YouTube Live Stream Direct Ingestion Card (Mode A3: Ultra-High FPS) -->
+                <div id="youtubeControlCard" class="mt-4 p-3.5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="p-1.5 rounded bg-red-950/80 border border-red-800/60 text-red-400">
+                                <i data-lucide="youtube" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-white tracking-wide">YouTube Live Stream (Mode A3)</span>
+                                <p class="text-[10px] text-slate-400">Streams directly into Colab GPU via Google CDN &bull; 20–30 FPS real-time</p>
+                            </div>
+                        </div>
+                        <span id="ytStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 font-mono">Ready</span>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <input id="youtubeUrlInput" type="text" placeholder="Paste YouTube Live or video URL (e.g. https://www.youtube.com/watch?v=...)" class="flex-1 bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-red-500 font-mono">
+                        <button id="btnStartYtStream" onclick="startYouTubeStream()" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shrink-0 shadow-md shadow-red-600/30">
+                            <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                            <span id="btnStartYtText">Stream on GPU</span>
+                        </button>
+                        <button id="btnStopYtStream" onclick="stopActiveStream()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition hidden">
+                            Stop
+                        </button>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-400">
+                        <span class="text-slate-500 font-medium">Quick Presets:</span>
+                        <button onclick="loadYtPreset('https://www.youtube.com/watch?v=ph1vpnYIxJk', 'Venice Cafe (Sitting & Standing)')" class="hover:text-cyan-400 text-slate-300 underline underline-offset-2">☕ Venice Cafe (Sit/Stand)</button>
+                        <span>&bull;</span>
+                        <button onclick="loadYtPreset('https://www.youtube.com/watch?v=gFRtAAmiFbE', 'Tokyo Shibuya Crossing')" class="hover:text-cyan-400 text-slate-300 underline underline-offset-2">🏙️ Tokyo Crossing (Pedestrians)</button>
+                        <span>&bull;</span>
+                        <button onclick="loadYtPreset('https://www.youtube.com/watch?v=1-iS7LArMPA', 'Times Square 4K')" class="hover:text-cyan-400 text-slate-300 underline underline-offset-2">🗽 Times Square</button>
                     </div>
                 </div>
             </div>
@@ -743,6 +785,89 @@
                 headerBtn.classList.remove('bg-rose-600', 'hover:bg-rose-500');
                 headerBtnText.textContent = 'Share Laptop Webcam';
             }
+        }
+
+        // --- YouTube Live Stream Ingestion (Mode A3: Ultra-High FPS) ---
+        async function startYouTubeStream(urlOverride) {
+            const input = document.getElementById('youtubeUrlInput');
+            const url = urlOverride || (input ? input.value.trim() : '');
+            if (!url) {
+                alert("Please enter a valid YouTube Live or video URL!");
+                return;
+            }
+
+            // Stop local webcam share if currently sending
+            if (isWebcamSharing) {
+                stopWebcamShare();
+            }
+
+            const btnText = document.getElementById('btnStartYtText');
+            const statusBadge = document.getElementById('ytStatusBadge');
+            const stopBtn = document.getElementById('btnStopYtStream');
+
+            if (btnText) btnText.textContent = "Resolving...";
+            if (statusBadge) {
+                statusBadge.textContent = "Resolving stream via Colab GPU...";
+                statusBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-amber-950 border border-amber-800 text-amber-400 font-mono animate-pulse";
+            }
+
+            try {
+                const res = await fetch('/api/camera/start-youtube', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ youtube_url: url })
+                });
+                const data = await res.json();
+                if (data.status === 'started') {
+                    if (btnText) btnText.textContent = "Streaming Live";
+                    if (statusBadge) {
+                        statusBadge.textContent = "Live Stream Active (20-30 FPS)";
+                        statusBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 font-mono";
+                    }
+                    if (stopBtn) stopBtn.classList.remove('hidden');
+
+                    // Force stream refresh
+                    const streamImg = document.getElementById('cameraStreamImg');
+                    if (streamImg) {
+                        streamImg.src = "/api/camera/stream?t=" + Date.now();
+                    }
+                } else {
+                    if (btnText) btnText.textContent = "Stream on GPU";
+                    if (statusBadge) {
+                        statusBadge.textContent = "Failed to connect";
+                        statusBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-rose-950 border border-rose-800 text-rose-400 font-mono";
+                    }
+                    alert("Unable to open YouTube stream: " + (data.message || "Invalid or private stream"));
+                }
+            } catch (err) {
+                if (btnText) btnText.textContent = "Stream on GPU";
+                if (statusBadge) {
+                    statusBadge.textContent = "Connection error";
+                    statusBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-rose-950 border border-rose-800 text-rose-400 font-mono";
+                }
+                alert("Network error: " + err.message);
+            }
+        }
+
+        function loadYtPreset(url, name) {
+            const input = document.getElementById('youtubeUrlInput');
+            if (input) input.value = url;
+            startYouTubeStream(url);
+        }
+
+        async function stopActiveStream() {
+            try {
+                await fetch('/api/camera/stop', { method: 'POST' });
+                const btnText = document.getElementById('btnStartYtText');
+                const statusBadge = document.getElementById('ytStatusBadge');
+                const stopBtn = document.getElementById('btnStopYtStream');
+                if (btnText) btnText.textContent = "Stream on GPU";
+                if (statusBadge) {
+                    statusBadge.textContent = "Stopped";
+                    statusBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 font-mono";
+                }
+                if (stopBtn) stopBtn.classList.add('hidden');
+            } catch (e) {}
         }
 
         async function toggleOverlay(type) {
