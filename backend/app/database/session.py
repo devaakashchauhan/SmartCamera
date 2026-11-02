@@ -1,7 +1,12 @@
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.core.config import settings
+
+# Automatically create storage directory if it does not exist (e.g. on fresh git clone)
+storage_path = Path(settings.STORAGE_DIR)
+storage_path.mkdir(parents=True, exist_ok=True)
 
 # SQLite connection with multi-threaded support
 engine = create_engine(
